@@ -5,8 +5,6 @@
 
 with pkgs.lib;
 let
-  mergeListRecursively = pkgs.callPackage ./merge-lists-recursively.nix { };
-
   traceId = x: builtins.trace x x;
 
   fromYamlFile = yamlFile: builtins.fromJSON (builtins.readFile (
@@ -25,17 +23,17 @@ let
   snapshotFileContents = fromYamlFile snapshotFile;
   turnPackageDescriptionIntoPackage = packageYamlContents:
     if builtins.hasAttr "hackage" packageYamlContents
-    then 
-    let nameVersionAndHash = packageYamlContents.hackage;
-        pieces = splitString "@" nameVersionAndHash;
-        nameAndVersion = head pieces;
-        hashAndSize = last pieces;
-        namePieces = splitString "-" nameAndVersion;
-        name = concatStringsSep "-" (init namePieces);
-        version = last namePieces;
-      in { "${name}" = pkgs.haskellPackages.callHackage name version {}; }
+      then 
+      let nameVersionAndHash = packageYamlContents.hackage;
+          pieces = splitString "@" nameVersionAndHash;
+          nameAndVersion = head pieces;
+          hashAndSize = last pieces;
+          namePieces = splitString "-" nameAndVersion;
+          name = concatStringsSep "-" (init namePieces);
+          version = last namePieces;
+        in nameValuePair name (pkgs.haskellPackages.callHackage name version {})
     else builtins.trace "Not implemented yet." null;
     
-  result = builtins.map turnPackageDescriptionIntoPackage snapshotFileContents.packages;
+  result = builtins.listToAttrs (builtins.map turnPackageDescriptionIntoPackage snapshotFileContents.packages);
     
-in builtins.head result
+in result
