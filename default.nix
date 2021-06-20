@@ -34,6 +34,23 @@ let
         in nameValuePair name (pkgs.haskellPackages.callHackage name version {})
     else builtins.trace "Not implemented yet." null;
     
-  result = builtins.listToAttrs (builtins.map turnPackageDescriptionIntoPackage snapshotFileContents.packages);
+  snapshotPackageSet = builtins.listToAttrs (builtins.map turnPackageDescriptionIntoPackage snapshotFileContents.packages);
+
+  stackYamlContents = fromYamlFile stackYaml;
+
+  localPackagePath = builtins.head stackYamlContents.packages;
     
-in result
+  localPkgDerivation = pkgs.haskellPackages.haskellSrc2nix {
+    name = "test";
+    src = builtins.dirOf stackYaml + "/${localPackagePath}";
+  };
+
+  extraOverrides = {
+    inherit (pkgs.stdenv) mkDerivation;
+    inherit (pkgs) stdenv;
+    base = pkgs.haskellPackages.base;
+  };
+  localPkg = callPackageWith snapshotPackageSet localPkgDerivation extraOverrides;
+
+  # TODO: We need to generate code like in hackage-packages.nix in nixpkgs
+in traceId localPkgDerivation
