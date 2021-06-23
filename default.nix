@@ -6,16 +6,8 @@
 with pkgs.lib;
 let
   traceId = x: builtins.trace x x;
+  fromYamlFile = pkgs.callPackage ./lib/fromYamlFile.nix {};
 
-  fromYamlFile = yamlFile: builtins.fromJSON (builtins.readFile (
-    pkgs.stdenv.mkDerivation {
-      name = "stack.yaml.lock.json";
-      buildInputs = [ pkgs.yaml2json ];
-      src = yamlFile;
-      buildCommand = ''
-        cat $src | yaml2json > $out
-      '';
-  }));
   stackYamlLockContents = fromYamlFile stackYamlLock;
   snapshotFile = 
     let snapshot = (builtins.head stackYamlLockContents.snapshots);
