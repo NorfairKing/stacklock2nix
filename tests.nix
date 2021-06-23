@@ -1,9 +1,12 @@
+{ sources ? import ./nix/sources.nix
+, pkgs ? import sources.nixpkgs
+}:
 let
-  pkgs = import <nixpkgs> {};
-  stacklock2nix = args: import ./default.nix ({ inherit pkgs; } // args) ;
+  stacklock2nix = args: import ./default.nix ({ inherit pkgs; } // args);
 
   testProjects = {
     local-test = { stackYaml = ./local-test/stack.yaml; };
   };
 
-in pkgs.lib.mapAttrs (_: args: stacklock2nix args) testProjects
+in
+pkgs.lib.mapAttrs (_: args: stacklock2nix args) testProjects

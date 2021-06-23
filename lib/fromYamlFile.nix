@@ -10,4 +10,4 @@ builtins.fromJSON (builtins.readFile (
     buildCommand = ''
       cat $src | yaml2json > $out
     '';
-}))
+  }))
