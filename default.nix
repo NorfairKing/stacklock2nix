@@ -78,7 +78,18 @@ let
         hash = lib.head hashPieces;
         # "544'
         size = lib.last hashPieces;
-        value = callPackage (self.hackage2nix name version) { };
+        value = pkgs.haskell.lib.overrideCabal (callPackage ((x: builtins.trace "${x}" x) (self.hackage2nix name version)) { }) {
+          # Turn off all tests so that we definitely don't get any infinite recursion
+          # when one library's tests depend on a library that depends on that library.
+          # In this way:
+          # A's test -> B's lib -> A's lib
+          doCheck = false;
+          doBenchmark = false;
+          doHaddock = false;
+          doHoogle = false;
+          enableExecutableProfiling = false;
+          hyperlinkSource = false;
+        };
       in
       lib.nameValuePair name value
     else builtins.trace "Not implemented yet." null;
@@ -145,13 +156,13 @@ let
 
   haskellPackagesFunc = pkgs.haskell.lib.makePackageSet {
     buildPackages = pkgs;
-    buildHaskellPackages = pkgs;
+    buildHaskellPackages = pkgs.haskellPackages;
     pkgs = pkgs;
     stdenv = pkgs.stdenv;
     lib = pkgs.lib;
     haskellLib = pkgs.haskell.lib;
     all-cabal-hashes = pkgs.all-cabal-hashes;
-    ghc = pkgs.ghc;
+    ghc = pkgs.haskell.compiler.ghc884;
     package-set = totalPackageSetFunction;
     extensible-self = haskellPackages;
   };
@@ -159,4 +170,4 @@ let
 
 
 in
-haskellPackages.local-test
+haskellPackages
