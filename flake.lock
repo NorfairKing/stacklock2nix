@@ -1,0 +1,62 @@
+{
+  "nodes": {
+    "all-cabal-hashes": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1646721421,
+        "narHash": "sha256-sdzocszvqjKK2PvLLTov2SgEIMCAFwOb9rexzFyIHnM=",
+        "owner": "commercialhaskell",
+        "repo": "all-cabal-hashes",
+        "rev": "e54b75bab73f40e230f76f77d710bb66139ee10a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "commercialhaskell",
+        "ref": "hackage",
+        "repo": "all-cabal-hashes",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1646588256,
+        "narHash": "sha256-ZHljmNlt19nSm0Mz8fx6QEhddKUkU4hhwFmfNmGn+EY=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2ebb6c1e5ae402ba35cca5eec58385e5f1adea04",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "ref": "nixos-21.11",
+        "type": "indirect"
+      }
+    },
+    "root": {
+      "inputs": {
+        "all-cabal-hashes": "all-cabal-hashes",
+        "nixpkgs": "nixpkgs",
+        "shellcheck": "shellcheck"
+      }
+    },
+    "shellcheck": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1643945026,
+        "narHash": "sha256-oNVNR7YBtW7ZiPes+EXzaqqnIpkRkWGyU0uMQA5n0/w=",
+        "owner": "koalaman",
+        "repo": "shellcheck",
+        "rev": "88cdb4e2c9b45becb21bd02cd7b205d5bef8cb56",
+        "type": "github"
+      },
+      "original": {
+        "owner": "koalaman",
+        "repo": "shellcheck",
+        "rev": "88cdb4e2c9b45becb21bd02cd7b205d5bef8cb56",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

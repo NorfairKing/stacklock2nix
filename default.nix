@@ -1,11 +1,15 @@
-{ stackYaml
-, stackYamlLock ? stackYaml + ".lock"
-, sources ? import ./nix/sources.nix
-, pkgs ? import sources.nixpkgs { }
-}:
+{
+  stackYaml,
+  all-cabal-hashes ? pkgs.all-cabal-hashes,
+  stackYamlLock ? stackYaml + ".lock",
+  sources ? import ./nix/sources.nix,
+  src ? null,
+  pkgs ? import sources.nixpkgs { },
+} @ args:
 
 let
   lib = pkgs.lib;
+  l = builtins // lib;
 
   traceId = x: builtins.trace x x;
   fromYamlFile = pkgs.callPackage ./lib/fromYamlFile.nix { };
@@ -30,33 +34,10 @@ let
   # Then we read it into nix format
   snapshotFileContents = fromYamlFile snapshotFile;
 
-  # The snapshot file that we downloaded contains a section like this:
-  # 
-  # packages:
-  # - hackage: AC-Angle-1.0@sha256:e1ffee97819283b714598b947de323254e368f6ae7d4db1d3618fa933f80f065,544
-  #   pantry-tree:
-  #     size: 210
-  #     sha256: 7edd1f1a6228af27c0f0ae53e73468c1d7ac26166f2cb386962db7ff021a2714
-  # 
-  # The following function turns an element in this list into something of the following format, based on what we find in 
-  # the `pkgs/development/haskell-modules/hackage-packages.nix` file in nixpkgs:
-  # 
-  # "AC-Angle" = callPackage
-  #   ({ mkDerivation, base }:
-  #    mkDerivation {
-  #      pname = "AC-Angle";
-  #      version = "1.0";
-  #      sha256 = "0ra97a4im3w2cq3mf17j8skn6bajs7rw7d0mmvcwgb9jd04b0idm";
-  #      libraryHaskellDepends = [ base ];
-  #      description = "Angles in degrees and radians";
-  #      license = lib.licenses.bsd3;
-  #    }) {};
-  turnPackageDescriptionIntoPackage =
-    self:
-    { pkgs, lib, callPackage }:
-    packageYamlContents:
-    if builtins.hasAttr "hackage" packageYamlContents
-    then
+  getPackageInfo = packageYamlContents:
+    if ! builtins.hasAttr "hackage" packageYamlContents
+    then l.throw "Not implemented yet."
+    else
       let
         # AC-Angle-1.0@sha256:e1ffee97819283b714598b947de323254e368f6ae7d4db1d3618fa933f80f065,544
         nameVersionAndHash = packageYamlContents.hackage;
@@ -78,7 +59,49 @@ let
         hash = lib.head hashPieces;
         # "544'
         size = lib.last hashPieces;
-        value = pkgs.haskell.lib.overrideCabal (callPackage ((x: builtins.trace "${x}" x) (self.hackage2nix name version)) { }) {
+      in {
+        inherit name;
+        version = l.trace name version;
+      };
+
+  # The snapshot file that we downloaded contains a section like this:
+  #
+  # packages:
+  # - hackage: AC-Angle-1.0@sha256:e1ffee97819283b714598b947de323254e368f6ae7d4db1d3618fa933f80f065,544
+  #   pantry-tree:
+  #     size: 210
+  #     sha256: 7edd1f1a6228af27c0f0ae53e73468c1d7ac26166f2cb386962db7ff021a2714
+  #
+  # The following function turns an element in this list into something of the following format, based on what we find in
+  # the `pkgs/development/haskell-modules/hackage-packages.nix` file in nixpkgs:
+  #
+  # "AC-Angle" = callPackage
+  #   ({ mkDerivation, base }:
+  #    mkDerivation {
+  #      pname = "AC-Angle";
+  #      version = "1.0";
+  #      sha256 = "0ra97a4im3w2cq3mf17j8skn6bajs7rw7d0mmvcwgb9jd04b0idm";
+  #      libraryHaskellDepends = [ base ];
+  #      description = "Angles in degrees and radians";
+  #      license = lib.licenses.bsd3;
+  #    }) {};
+  turnPackageDescriptionIntoPackage =
+    self:
+    { pkgs, lib, callPackage }:
+    packageInfo:
+    let
+
+      package = self.hackage2nix packageInfo.name packageInfo.version;
+
+      pkg = ((x: builtins.trace "${x}" x) package);
+    in
+      pkgs.haskell.lib.overrideCabal
+        (callPackage
+          pkg
+          (lib.optionalAttrs (packageInfo.name == "splitmix") {
+            testu01 = null;
+          }))
+        {
           # Turn off all tests so that we definitely don't get any infinite recursion
           # when one library's tests depend on a library that depends on that library.
           # In this way:
@@ -90,13 +113,22 @@ let
           enableExecutableProfiling = false;
           hyperlinkSource = false;
         };
-      in
-      lib.nameValuePair name value
-    else builtins.trace "Not implemented yet." null;
 
   # This set is just that entire file
   snapshotPackageSetFunction = args@{ pkgs, lib, callPackage }: self:
-    builtins.listToAttrs (builtins.map (turnPackageDescriptionIntoPackage self args) snapshotFileContents.packages);
+    let
+      packageInfosByName = l.listToAttrs
+        (l.forEach snapshotFileContents.packages
+          (yaml: let
+            parsed = getPackageInfo yaml;
+          in
+            l.nameValuePair
+              parsed.name
+              parsed));
+    in
+      l.mapAttrs
+        (name: info: turnPackageDescriptionIntoPackage self args info)
+        packageInfosByName;
 
   # The contents of the stack.yaml file in nix format
   stackYamlContents = fromYamlFile stackYaml;
@@ -144,7 +176,7 @@ let
     callPackage
       (self.haskellSrc2nix {
         name = "local-test";
-        src = builtins.dirOf stackYaml + "/${localPackagePath}";
+        src = args.src or (builtins.dirOf (stackYaml + "/${localPackagePath}"));
       })
       { };
 
@@ -155,13 +187,13 @@ let
 
 
   haskellPackagesFunc = pkgs.haskell.lib.makePackageSet {
+    inherit all-cabal-hashes;
     buildPackages = pkgs;
     buildHaskellPackages = pkgs.haskellPackages;
     pkgs = pkgs;
     stdenv = pkgs.stdenv;
     lib = pkgs.lib;
     haskellLib = pkgs.haskell.lib;
-    all-cabal-hashes = pkgs.all-cabal-hashes;
     ghc = pkgs.haskell.compiler.ghc884;
     package-set = totalPackageSetFunction;
     extensible-self = haskellPackages;
